@@ -21,7 +21,7 @@ ifeq ($(arch-name),)
 endif
 
 # Define the C++ compiler to use
-CXX := $(shell which g++) 
+CXX := $(shell which clang++) 
 
 # Dependency directory and flags
 DEPSDIR := $(shell mkdir -p .deps; echo .deps)
@@ -33,14 +33,14 @@ DEPSFLAGS = -MD -MF $(DEPSFILE) #-MP
 
 # Define any directories containing header files
 #   To include directories use -Ipath/to/files
-CPPFLAGS += -I.
+CPPFLAGS += -I. -I/opt/homebrew/Cellar/sfml/2.5.1_1/include
 
 # Define cxx compile flags
 CXXFLAGS  := -std=c++11 -O3 -W -Wall -Wextra #-Wfatal-errors
 
 # Define any directories containing libraries
 #   To include directories use -Lpath/to/files
-LDFLAGS += -L/usr/local/lib/
+LDFLAGS += -L/usr/local/lib/ -L/opt/homebrew/Cellar/sfml/2.5.1_1/lib
 
 # Define any libraries to link into executable
 #   To link in libraries (libXXX.so or libXXX.a) use -lXXX
@@ -89,12 +89,12 @@ clean:
 
 # Points to the root of Google Test, relative to where this file is.
 # MODIFY THIS FOR CME212
-GTEST_DIR = ../../googletest/googletest
+GTEST_DIR = /Users/albanbroze/Documents/stanford/cme212/googletest/googletest
 
 # Flags passed to the preprocessor.
 # Set Google Test's header directory as a system directory, such that
 # the compiler doesn't generate warnings in Google Test headers.
-CPPFLAGS += -isystem $(GTEST_DIR)/include
+CPPFLAGS += -isystem $(GTEST_DIR)/include -L/opt/homebrew/Cellar/sfml/2.5.1_1/lib
 
 # Flags passed to the C++ compiler for tests
 GTEST_CXXFLAGS += -std=c++11 -g -Wall -Wextra -pthread
