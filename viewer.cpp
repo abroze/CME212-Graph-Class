@@ -37,8 +37,7 @@ int main(int argc, char** argv)
   }
 
   // Define our types
-
-  using GraphType = Graph;
+  using GraphType = Graph<int>;
   using NodeType  = typename GraphType::node_type;
 
 
@@ -78,12 +77,12 @@ int main(int argc, char** argv)
   // Launch a viewer
   CME212::SFML_Viewer viewer;
 
-  viewer.draw_graph_nodes(graph);  // Draw only the nodes
-  viewer.draw_graph(graph);      // Draw the nodes and edges
+  //viewer.draw_graph_nodes(graph);  // Draw only the nodes
+  //viewer.draw_graph(graph);      // Draw the nodes and edges
 
   // Center the view and enter the event loop for interactivity
   auto node_map = viewer.empty_node_map(graph);
-  //viewer.add_nodes(graph.node_begin(), graph.node_end(), node_map);
+  viewer.add_nodes(graph.node_begin(), graph.node_end(), node_map);
   //viewer.add_edges(graph.edge_begin(), graph.edge_end(), node_map);
   viewer.center_view();
   viewer.event_loop();

@@ -6,7 +6,7 @@
 class GraphPointFixture : public ::testing::Test {
  protected:
    //Define types
-  using GraphType = Graph;
+  using GraphType = Graph<double>;
   using NodeType  = typename GraphType::node_type;
   using EdgeType  = typename GraphType::edge_type;
 
