@@ -57,7 +57,7 @@ int main(int argc, char** argv)
   auto node_map = viewer.empty_node_map(graph);
 
   // Center the view and enter the event loop for interactivity
-  viewer.add_nodes(filt_begin, filt_end, node_map); // error here
+  viewer.add_nodes(filt_begin, filt_end, node_map);
   viewer.add_edges(graph.edge_begin(), graph.edge_end(), node_map);
   
   viewer.center_view();
