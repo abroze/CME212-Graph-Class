@@ -31,16 +31,24 @@ class filter_iterator : private equality_comparable<filter_iterator<Pred,It>>
   using iterator_category = typename std::input_iterator_tag;
 
   // Constructor
-  filter_iterator(const Pred& p, const It& first, const It& last)
-      : p_(p), it_(first), end_(last) {
-    // HW1 #4: YOUR CODE HERE
+  filter_iterator(const Pred& p, const It& first, const It& last) :
+  p_(p), it_(first), end_(last) {
   }
 
-  // HW1 #4: YOUR CODE HERE
-  // Supply definitions AND SPECIFICATIONS for:
-  // value_type operator*() const;
-  // filter_iterator& operator++();
-  // bool operator==(const self_type&) const;
+  value_type operator*() const {
+    return (*it_);
+  }
+
+  filter_iterator<Pred,It>& operator++() {
+    ++it_;
+    while (it_ != end_ && !(p_(*it_)))
+      ++it_;
+    return (*this);
+  }
+
+  bool operator==(const filter_iterator<Pred,It>& filter_it) const {
+    return (it_ == filter_it.it_ && end_ == filter_it.end_);
+  }
 
  private:
   Pred p_;
@@ -63,16 +71,11 @@ filter_iterator<Pred,Iter> make_filtered(const Iter& it, const Iter& end,
   return filter_iterator<Pred,Iter>(p, it, end);
 }
 
-// HW1 #4: YOUR CODE HERE
-// Specify and write an interesting predicate on the nodes.
-// Explain what your predicate is intended to do and test it.
-// If you'd like you may create new nodes and tets files.
-
 /** Test predicate for HW1 #4 */
 struct SlicePredicate {
   template <typename NODE>
   bool operator()(const NODE& n) {
-    return n.position().x < 0;
+    return (n.position().x < 0. && n.position().y < 0.);
   }
 };
 

@@ -47,11 +47,19 @@ int main(int argc, char** argv)
 
   // Launch the SFML_Viewer
   CME212::SFML_Viewer viewer;
-
-  // HW1 #4: YOUR CODE HERE
+  
   // Use the filter_iterator to plot an induced subgraph.
+  SlicePredicate sp;
+
+  filter_iterator<SlicePredicate, GraphType::node_iterator> filt_begin = make_filtered(graph.node_begin(), graph.node_end(), sp);
+  filter_iterator<SlicePredicate, GraphType::node_iterator> filt_end = make_filtered(graph.node_end(), graph.node_end(), sp); 
+
+  auto node_map = viewer.empty_node_map(graph);
 
   // Center the view and enter the event loop for interactivity
+  viewer.add_nodes(filt_begin, filt_end, node_map); // error here
+  viewer.add_edges(graph.edge_begin(), graph.edge_end(), node_map);
+  
   viewer.center_view();
   viewer.event_loop();
 

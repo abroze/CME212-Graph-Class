@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <fstream>
+#include <queue>
 
 #include "CME212/SFML_Viewer.hpp"
 #include "CME212/Util.hpp"
@@ -14,7 +15,7 @@
 #include "Graph.hpp"
 
 // Define our types
-using GraphType = Graph<double>;
+using GraphType = Graph<int>;
 using NodeType  = typename GraphType::node_type;
 using NodeIter  = typename GraphType::node_iterator;
 
@@ -30,35 +31,28 @@ using NodeIter  = typename GraphType::node_iterator;
  */
 
 struct CompareNodes {
-  Point p_;
-  CompareNodes(const Point& p) : p_(p) {
-  };
+private:
+  const Point& point_;
 
-  template <typename NODE>
-  bool operator()(const NODE& node1, const NODE& node2) const {
-    Point diff1 = node1.position() - p_;
-    Point diff2 = node2.position() - p_;
-    if (norm(diff1) < norm(diff2)) return true;
-    return false;
-    }
+public:
+  CompareNodes(const Point& point) :
+  point_(point) {}
+
+  bool operator()(const NodeType& n1, const NodeType& n2) {
+    Point pt_diff_1 = n1.position() - point_;
+    Point pt_diff_2 = n2.position() - point_;
+
+    double dist1 = norm_2(pt_diff_1);
+    double dist2 = norm_2(pt_diff_2);
+
+    return (dist1 < dist2);
+  }
 };
 
-
-Graph<int>::Node nearest_node(const GraphType& g, const Point& point)
-{
-  // HW1 #3: YOUR CODE HERE
-  CompareNodes cn = CompareNodes(point);
-
-  // Find the closest node to the given Point as root.
-  Graph<int>::node_iterator nifirst = g.node_begin();
-  Graph<int>::node_iterator nilast = g.node_end();
-  Graph<int>::node_iterator niroot = std::min_element(nifirst, nilast, cn);
-  Graph<int>::node_type root = *niroot;
-
-  return root;
-  
+NodeIter nearest_node(const GraphType& g, const Point& point) {
+  NodeIter node_it = std::min_element(g.node_begin(), g.node_end(), CompareNodes(point));
+  return node_it;
 }
-
 
 
 /** Update a graph with the shortest path lengths from a root node.
@@ -75,46 +69,42 @@ Graph<int>::Node nearest_node(const GraphType& g, const Point& point)
  * the root node. The root's value() is 0. Nodes unreachable from
  * the root have value() -1.
  */
-int shortest_path_lengths(GraphType& g, NodeType& root)
-{
-  /*
-  // HW1 #3: YOUR CODE HERE
-  // Set all the nodes' default values to -1 and the root's value to 0.
-  for(; nifirst != nilast; ++nifirst){
-    (*nifirst).value() = -1; 
+int shortest_path_lengths(GraphType& g, NodeType& root) {
+
+  NodeIter node_it = g.node_begin();
+  while(node_it != g.node_end()){
+    (*node_it).value() = -1;
+    ++node_it;
   }
+
+  std::queue<NodeType> Q;
+
   root.value() = 0;
+  Q.push(root);
 
-  // Set the current longest distance from root.
-  int max = 0;
+  while(!(Q.empty())) {
+    NodeType current = Q.front();
+    Q.pop();
 
-  /** The queue is to store the nodes needed to be evaluated.
-   *  For each node n in the queue, we iterate the adjent nodes and set their values,
-   *  push them into the queue and then pop n. In this process, update max.
-   
-  std::queue<Graph<int, int>::node_type> waiting;
-  waiting.push(root);
-  while(!waiting.empty()){
-    Graph<int, int>::node_type r = waiting.front();
-    int cur = r.value();
-    Graph<int, int>::incident_iterator rbegin = r.edge_begin();
-    Graph<int, int>::incident_iterator rend = r.edge_end();
-    for(; rbegin != rend; ++rbegin){
-      if((*rbegin).node2().value() == -1){
-        (*rbegin).node2().value() = cur + 1;
-        if((*rbegin).node2().value() > max) max = (*rbegin).node2().value();
-        waiting.push((*rbegin).node2());
+    auto edge_it = current.edge_begin();
+    while (edge_it != current.edge_end()) {
+      if ((*edge_it).node2().value() == -1) {
+        (*edge_it).node2().value() = (*edge_it).node1().value() + 1;
+        Q.push((*edge_it).node2());
       }
-      if((*rbegin).node2().value() > cur + 1){
-        (*rbegin).node2().value() = cur + 1;
-        if((*rbegin).node2().value() > max) max = (*rbegin).node2().value();
-      }
+      ++edge_it;
     }
-    waiting.pop();
   }
-  return max;
-  
-*/
-  return 0;
+
+  int longest_path = 0;
+
+  auto ni = g.node_begin();
+  while (ni != g.node_end()) {
+    NodeType node = *ni;
+    if (node.value() > longest_path)
+      longest_path = node.value();
+    ++ni;
+  }
+  return longest_path;
 }
 
