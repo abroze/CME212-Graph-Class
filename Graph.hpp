@@ -21,8 +21,8 @@
  * Users can add and retrieve nodes and edges. Edges are unique (there is at
  * most one edge between any pair of distinct nodes).
  */
-template <typename V>
-class Graph: private totally_ordered <Graph<V>> {
+template <typename V, typename E>
+class Graph: private totally_ordered <Graph<V, E>> {
  private:
 
   // predeclare the internal struct for node and edge
@@ -41,6 +41,9 @@ class Graph: private totally_ordered <Graph<V>> {
 
   /** Type of a node value. */
   using node_value_type = V;
+
+  /** Type of an edge value. */
+  using edge_value_type = E;
 
   /** Predeclaration of Node type. */
   class Node;
@@ -77,7 +80,8 @@ class Graph: private totally_ordered <Graph<V>> {
   //
 
   /** Constructs an empty graph. */
-  Graph() : nodes_(), edges_(), internal_nodes_(), internal_edges_(), 
+  Graph() : nodes_(), edges_(),
+  //internal_nodes_(), internal_edges_(), 
   nodes_to_edge_(), nodes_adj_edges_() {};
 
   /** Default destructor */
@@ -112,6 +116,11 @@ class Graph: private totally_ordered <Graph<V>> {
 
     /** Constructs an invalid node. */
     Node() {}
+
+    /** Function to modify position. */
+    Point& position() {
+      return graph_->nodes_.at(id_).position_;
+    }
 
     /** Return this node's position. */
     const Point& position() const {
@@ -211,8 +220,8 @@ class Graph: private totally_ordered <Graph<V>> {
     new_internal_node.degree_ = 0;
 
     nodes_.push_back(new_internal_node);
-    std::pair<size_type, internal_node> pair(new_internal_node_id, new_internal_node);
-    internal_nodes_.insert(pair);
+    //std::pair<size_type, internal_node> pair(new_internal_node_id, new_internal_node);
+    //internal_nodes_.insert(pair);
 
     nodes_adj_edges_[new_internal_node_id];
 
@@ -242,6 +251,24 @@ class Graph: private totally_ordered <Graph<V>> {
     return Node(this, i);
   }
 
+  size_type remove_node(const Node& n) {
+
+    for (auto ei = n.edge_begin(); ei != n.edge_end(); ++ei) {
+      remove_edge(*ei);
+      nodes_adj_edges_.erase(n.index());
+    }
+
+
+    for (auto ni = nodes_.begin(); ni != nodes_.end(); ++ni) {
+      if ((*ni).position_ == n.position()) {
+        *ni = nodes_.back();
+        nodes_.pop_back();
+      }
+    }
+  }
+
+
+
   //
   // EDGES
   //
@@ -257,6 +284,14 @@ class Graph: private totally_ordered <Graph<V>> {
     /** Construct an invalid Edge. */
     Edge() {}
 
+    edge_value_type& value() {
+      return (graph_->edges_.at(id_).value_);
+    }
+
+    const edge_value_type& value() const {
+      return (graph_->edges_.at(id_).value_);
+    }
+
     /** Return a node of this Edge */
     Node node1() const {
       return graph_->node(graph_->edges_[id_].node1_id_);
@@ -265,6 +300,11 @@ class Graph: private totally_ordered <Graph<V>> {
     /** Return the other node of this Edge */
     Node node2() const {
       return graph_->node(graph_->edges_[id_].node2_id_);
+    }
+
+    /** Return the distance between the two nodes */
+    double length() const {
+      return norm(node1().position() - node2().position());
     }
 
     /** Test whether this edge and @a e are equal.
@@ -376,7 +416,7 @@ class Graph: private totally_ordered <Graph<V>> {
    *
    * Complexity: No more than O(num_nodes() + num_edges()), hopefully less
    */
-  Edge add_edge(const Node& a, const Node& b) {
+  Edge add_edge(const Node& a, const Node& b, const edge_value_type& value = edge_value_type()) {
     assert(!(a==b));
 
     if (has_edge(a, b))
@@ -389,6 +429,7 @@ class Graph: private totally_ordered <Graph<V>> {
     new_internal_edge.node1_id_ = a.index();
     new_internal_edge.node2_id_ = b.index();
     new_internal_edge.edge_id_ = new_internal_edge_id;
+    new_internal_edge.value_ = value;
 
     edges_.push_back(new_internal_edge);
 
@@ -407,6 +448,58 @@ class Graph: private totally_ordered <Graph<V>> {
     return Edge(this, new_internal_edge_id);
     }
 
+
+    size_type remove_edge(const Node& a, const Node & b) {
+      assert(has_node(a));
+      assert(has_node(b));
+      assert(!(a == b));
+
+      std::string key = create_edge_key(a, b);
+
+      size_type edge_id = nodes_to_edge_.at(key);
+      nodes_to_edge_.erase(key);
+
+      erase_edges(a, b, edge_id);
+      
+      return 1;
+
+    }
+
+    void erase_edges(const Node& a, const Node & b, size_type edge_id) {
+
+      for (auto ei = a.edge_begin(); ei != a.edge_end(); ++ei) {
+        if ((*ei) == edge(edge_id)) {
+          edge_id = nodes_adj_edges_.at(a.index()).back();
+          nodes_adj_edges_.at(a.index()).pop_back();
+        }
+
+      }
+
+      for (auto ei = b.edge_begin(); ei != b.edge_end(); ++ei) {
+        if ((*ei) == edge(edge_id)) {
+          edge_id = nodes_adj_edges_.at(b.index()).back();
+          nodes_adj_edges_.at(b.index()).pop_back();
+        }
+      }
+  
+
+      for (auto ei = edges_.begin(); ei != edges_.end(); ++ei) {
+        if ((*ei).edge_id_ == edge_id) {
+          (*ei) = edges_.back();
+          edges_.pop_back();
+        }
+      }
+    }
+
+
+    size_type remove_edge(const Edge& e) {
+
+      Node a  = e.node1();
+      Node b = e.node2();
+      remove_edge(a, b);
+    }
+
+
   /** Remove all nodes and edges from this graph.
    * @post num_nodes() == 0 && num_edges() == 0
    *
@@ -415,9 +508,10 @@ class Graph: private totally_ordered <Graph<V>> {
   void clear() {
     nodes_.clear();
     edges_.clear();
-    internal_nodes_.clear();
-    internal_edges_.clear();
+    //internal_nodes_.clear();
+    //internal_edges_.clear();
     nodes_to_edge_.clear();
+    nodes_adj_edges_.clear();
   }
 
   //
@@ -474,6 +568,11 @@ class Graph: private totally_ordered <Graph<V>> {
     return NodeIterator(const_cast<Graph*>(this), num_nodes());
   }
 
+  node_iterator remove_node(node_iterator n_it) {
+    remove_node(*n_it);
+    return n_it;
+  }
+
   //
   // Incident Iterator
   //
@@ -487,21 +586,28 @@ class Graph: private totally_ordered <Graph<V>> {
     using pointer           = Edge*;                    // Pointers to elements
     using reference         = Edge&;                    // Reference to elements
     using difference_type   = std::ptrdiff_t;           // Signed difference
-    using iterator_category = std::input_iterator_tag;  // Weak Category, Proxy
+    using iterator_category = std::forward_iterator_tag;  // Weak Category, Proxy
 
     /** Construct an invalid IncidentIterator. */
     IncidentIterator() {}
 
     Edge operator*() const {
+      if (graph_->node(node_id_) != graph_->edge(edge_id_).node1()) {
+        graph_->edges_.at(edge_id_).node2_id_ = graph_->edges_.at(edge_id_).node1_id_;
+        graph_->edges_.at(edge_id_).node1_id_ = node_id_;   
+      }
+      assert(graph_->edge(edge_id_).node1() == graph_->node(node_id_));
       return edge_val_;
     }
 
     IncidentIterator& operator++() {
       inc_edge_id_++;
+
       if (inc_edge_id_ != graph_->nodes_.at(node_id_).degree_) {
         edge_id_ = graph_->nodes_adj_edges_.at(node_id_).at(inc_edge_id_);
         edge_val_ = graph_->edge(edge_id_);
       }
+
       return (*this);
     }
 
@@ -530,18 +636,10 @@ class Graph: private totally_ordered <Graph<V>> {
     inc_edge_id_(inc_edge_id)
     {
       if (inc_edge_id_ != graph_->nodes_.at(node_id_).degree_) {
-
-        edge_id_ = graph_->nodes_adj_edges_.at(node_id).at(inc_edge_id_);
+        edge_id_ = graph_->nodes_adj_edges_.at(node_id_).at(inc_edge_id_);
         edge_val_ = graph_->edge(edge_id_);
-
-        if (graph_->edges_.at(edge_id_).node1_id_ != node_id_) {
-          
-          // swap node1_id and node2_id  
-          graph_->edges_.at(edge_id_).node2_id_ = graph_->edges_.at(edge_id_).node1_id_;
-          graph_->edges_.at(edge_id_).node1_id_ = node_id_;
-        }
       }
-    };
+    }
 
   };
 
@@ -559,7 +657,7 @@ class Graph: private totally_ordered <Graph<V>> {
     using pointer           = Edge*;                    // Pointers to elements
     using reference         = Edge&;                    // Reference to elements
     using difference_type   = std::ptrdiff_t;           // Signed difference
-    using iterator_category = std::input_iterator_tag;  // Weak Category, Proxy
+    using iterator_category = std::forward_iterator_tag;  // Weak Category, Proxy
 
     /** Construct an invalid EdgeIterator. */
     EdgeIterator() {}
@@ -598,6 +696,12 @@ class Graph: private totally_ordered <Graph<V>> {
     return EdgeIterator(const_cast<Graph*>(this), num_edges());
   }
 
+
+  edge_iterator remove_edge(edge_iterator e_it) {
+    remove_edge(*e_it);
+    return e_it;
+  }
+
  private:
 
   struct internal_node {
@@ -610,6 +714,7 @@ class Graph: private totally_ordered <Graph<V>> {
     size_type node1_id_;
     size_type node2_id_;
     size_type edge_id_;
+    edge_value_type value_;
   };
 
   // vectors to store nodes and edges in Graph
@@ -617,8 +722,8 @@ class Graph: private totally_ordered <Graph<V>> {
   std::vector<internal_edge> edges_;
 
   // maps to store internal nodes and internal edges in Graph
-  std::map<size_type, internal_node> internal_nodes_;
-  std::map<size_type, internal_edge> internal_edges_;
+  //std::map<size_type, internal_node> internal_nodes_;
+  //std::map<size_type, internal_edge> internal_edges_;
 
   // unordered map to store internal nodes and internal edges in Graph
   std::unordered_map<std::string, size_type> nodes_to_edge_;

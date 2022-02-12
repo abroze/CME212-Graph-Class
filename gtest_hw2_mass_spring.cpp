@@ -7,12 +7,14 @@
 #include "mass_spring.hpp"
 
 // Define the Graph type
+//using GraphType = Graph<NodeData, EdgeData>;  // after adding value attribute to Edge
 using GraphType = Graph<NodeData, double>;  // after adding value attribute to Edge
 //using GraphType = Graph<NodeData>;        // before adding value attribute to Edge
 
 // Define Node and Edge Type
 using Node = typename GraphType::node_type;
 using Edge = typename GraphType::edge_type;
+
 
 
 TEST( MassSpringFunctions, GravityExistsProblem1 ){

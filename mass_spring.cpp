@@ -37,17 +37,42 @@ int main(int argc, char** argv)
   while (CME212::getline_parsed(tets_file, t)) {
     graph.add_edge(nodes[t[0]], nodes[t[1]]);
     graph.add_edge(nodes[t[0]], nodes[t[2]]);
-#if 0
+
     // Diagonal edges: include as of HW2 #2
     graph.add_edge(nodes[t[0]], nodes[t[3]]);
     graph.add_edge(nodes[t[1]], nodes[t[2]]);
-#endif
+
     graph.add_edge(nodes[t[1]], nodes[t[3]]);
     graph.add_edge(nodes[t[2]], nodes[t[3]]);
   }
 
-  // HW2 #1 YOUR CODE HERE
-  // Set initial conditions for your nodes, if necessary.
+  /*
+   // Set initial conditions for your nodes, if necessary.
+  for (auto it = graph.node_begin(); it != graph.node_end(); ++it) {
+    (*it).value().mass = 1.0/double(graph.size());
+  }
+  */
+
+  std::vector<Node> fixed_corners;
+  std::vector<Point> fixed_positions;
+
+  for (auto node_it = graph.node_begin(); node_it != graph.node_end(); ++node_it) {
+    auto n = *node_it;
+    n.value().mass = (double) 1/graph.size();
+    n.value().vel = Point(0, 0, 0);
+
+    if(n.position() == Point(0, 0, 0) || n.position() == Point(1, 0, 0)){
+      fixed_corners.push_back(n);
+      fixed_positions.push_back(n.position());
+    }
+  }
+
+  
+  for (auto eit = graph.edge_begin(); eit != graph.edge_end(); ++eit) {
+    (*eit).value().K = 100.0;
+    (*eit).value().L = (*eit).length();
+  }
+  
 
   // Print out the stats
   std::cout << graph.num_nodes() << " " << graph.num_edges() << std::endl;
@@ -72,11 +97,31 @@ int main(int argc, char** argv)
       double t_end = 5.0;
 
       for (double t = t_start; t < t_end && !interrupt_sim_thread; t += dt) {
-        //std::cout << "t = " << t << std::endl;
-        symp_euler_step(graph, t, dt, Problem1Force());
+        GravityForce F1 = GravityForce();
+        MassSpringForce F2 = MassSpringForce();
+        DampingForce F3 = DampingForce((double)1/graph.size());
+        CombinedForces combined_force_fn = make_combined_force(F1, F2, F3);
+
+        Point center = Point(0.5, 0.5, -0.5);
+        double radius = 0.15;
+        double plane_thresh = -0.75;
+
+        PinConstraint C1 = PinConstraint(fixed_corners, fixed_positions);
+        PlaneConstraint C2 = PlaneConstraint(plane_thresh);
+        //SphereConstraint C3 = SphereConstraint(center, radius);
+        RemoveSphereConstraint C4 = RemoveSphereConstraint(center, radius);
+        CombinedConstraints combined_constraint_fn = make_combined_constraint(C1, C2, C4);
+
+        // Apply all forces and constraints to to the graph
+        symp_euler_step(graph, t, dt, combined_force_fn, combined_constraint_fn);
+
+        // Clear the viewer ’s nodes and edges
+        viewer.clear();
+        node_map.clear();
 
         // Update viewer with nodes' new positions
         viewer.add_nodes(graph.node_begin(), graph.node_end(), node_map);
+        viewer.add_edges(graph.edge_begin(), graph.edge_end(), node_map);
         viewer.set_label(t);
 
         // These lines slow down the animation for small graphs, like grid0_*.
@@ -95,3 +140,11 @@ int main(int argc, char** argv)
 
   return 0;
 }
+
+
+
+
+
+
+
+

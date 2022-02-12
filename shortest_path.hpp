@@ -15,7 +15,7 @@
 #include "Graph.hpp"
 
 // Define our types
-using GraphType = Graph<int>;
+using GraphType = Graph<int, int>;
 using NodeType  = typename GraphType::node_type;
 using NodeIter  = typename GraphType::node_iterator;
 
@@ -80,30 +80,26 @@ int shortest_path_lengths(GraphType& g, NodeType& root) {
   std::queue<NodeType> Q;
 
   root.value() = 0;
+  int longest_path = 0;
   Q.push(root);
 
-  while(!(Q.empty())) {
-    NodeType current = Q.front();
-    Q.pop();
-
-    auto edge_it = current.edge_begin();
-    while (edge_it != current.edge_end()) {
-      if ((*edge_it).node2().value() == -1) {
-        (*edge_it).node2().value() = (*edge_it).node1().value() + 1;
-        Q.push((*edge_it).node2());
+  while(!Q.empty()) {
+    NodeType r = Q.front();
+    int current = r.value();
+    for (auto ii = r.edge_begin(); ii != r.edge_end(); ++ii) {
+      if ((*ii).node2().value() == -1) {
+        (*ii).node2().value() = current + 1;
+        if((*ii).node2().value() > longest_path)
+          longest_path = (*ii).node2().value();
+        Q.push((*ii).node2());
       }
-      ++edge_it;
+      if((*ii).node2().value() > current + 1){
+        (*ii).node2().value() = current + 1;
+        if ((*ii).node2().value() > longest_path)
+          longest_path = (*ii).node2().value();
+      }
     }
-  }
-
-  int longest_path = 0;
-
-  auto ni = g.node_begin();
-  while (ni != g.node_end()) {
-    NodeType node = *ni;
-    if (node.value() > longest_path)
-      longest_path = node.value();
-    ++ni;
+    Q.pop();
   }
   return longest_path;
 }
