@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <fstream>
+#include <iostream>
 
 #include "CME212/Util.hpp"
 #include "CME212/Point.hpp"
@@ -102,7 +103,7 @@ TEST_F(GraphPointFixture, RepeatedRemoveNode){
     unsigned n = unsigned(CME212::random(0, graph.num_nodes()));
     graph.remove_node(graph.node(n));
   }
-
+  
   EXPECT_EQ( graph.num_nodes(), 50 ) << " Did not remove 50 nodes";
 
   //check node indices

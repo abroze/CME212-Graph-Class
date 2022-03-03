@@ -34,9 +34,11 @@ int main(int argc, char** argv)
   // Interpret each line of the tets_file as four ints which refer to nodes
   std::array<int,4> t;
   while (CME212::getline_parsed(tets_file, t))
-    for (unsigned i = 1; i < t.size(); ++i)
-      for (unsigned j = 0; j < i; ++j)
+    for (unsigned i = 1; i < t.size(); ++i) {
+      for (unsigned j = 0; j < i; ++j) {
         graph.add_edge(nodes[t[i]], nodes[t[j]]);
+      }
+    }
 
   // Print out the stats
   std::cout << graph.num_nodes() << " " << graph.num_edges() << std::endl;
