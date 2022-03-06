@@ -75,6 +75,8 @@ TEST_F(GraphPointFixture, IncidentIter){
 
   for(auto ni = graph.node_begin(); ni != graph.node_end(); ++ni){
     NodeType n = *ni;
+    std::cout << "node id : " << n.index() << std::endl;
+    std::cout << (*n.edge_begin()).node1().index() << std::endl;
     for (auto ii = n.edge_begin(); ii != n.edge_end(); ++ii) {
       EdgeType e = *ii;
       std::cout << "node1 index : " << e.node1().index() << std::endl;

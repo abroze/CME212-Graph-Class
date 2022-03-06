@@ -34,6 +34,8 @@ DEPSFLAGS = -MD -MF $(DEPSFILE) #-MP
 # Define any directories containing header files
 #   To include directories use -Ipath/to/files
 CPPFLAGS += -I. -I/opt/homebrew/Cellar/sfml/2.5.1_1/include
+CPPFLAGS += -I/Users/albanbroze/cme212-abroze/mtl4
+CPPFLAGS += -I/opt/homebrew/Cellar/boost/1.78.0_1/include
 
 # Define cxx compile flags
 CXXFLAGS  := -std=c++11 -O3 -W -Wall -Wextra #-Wfatal-errors
@@ -41,6 +43,7 @@ CXXFLAGS  := -std=c++11 -O3 -W -Wall -Wextra #-Wfatal-errors
 # Define any directories containing libraries
 #   To include directories use -Lpath/to/files
 LDFLAGS += -L/usr/local/lib/ -L/opt/homebrew/Cellar/sfml/2.5.1_1/lib
+LDFLAGS += -L/opt/homebrew/Cellar/boost/1.78.0_1/lib
 
 # Define any libraries to link into executable
 #   To link in libraries (libXXX.so or libXXX.a) use -lXXX

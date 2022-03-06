@@ -14,10 +14,89 @@
 #include "CME212/SFML_Viewer.hpp"
 #include "GraphSymmetricMatrix.hpp"
 
-// HW3: YOUR CODE HERE
-// Define visual_iteration that inherits from cyclic_iteration
+#include "Graph.hpp"
 
 
+/* * Traits that MTL uses to determine properties of our GraphSymmetricMatrix . */
+namespace mtl {
+  namespace ashape {
+
+    /* * Define GraphSymmetricMatrix to be a non - scalar type . */
+    template <>
+    struct ashape_aux <GraphSymmetricMatrix> {
+        typedef nonscal type;
+    };
+  } // end namespace ashape
+
+  /* * GraphSymmetricMatrix implements the Collection concept
+      * with value_type and size_type */
+  template < >
+  struct Collection <GraphSymmetricMatrix> {
+    typedef double value_type;
+    typedef unsigned size_type;
+  };
+} // end namespace mtl
+
+
+namespace itl {
+  template <class Real>
+
+  // Class to visualize the iterations of the solution
+  class visual_iteration : public cyclic_iteration<Real> {
+
+    typedef cyclic_iteration<Real> super;
+    typedef visual_iteration self;
+
+    void update_viewer() {
+      viewer_->add_nodes(graph_->node_begin(), graph_->node_end(), nc_, NodePosition(*x_), node_map_);
+      viewer_->add_edges(graph_->edge_begin(), graph_->edge_end(), node_map_);
+      viewer_->set_label(this->i);
+    }
+
+  public:
+
+    visual_iteration( mtl::vec::dense_vector<double>& r0,
+                      mtl::vec::dense_vector<double>* x,
+                      std::map<NodeType, unsigned> node_map,
+                      int max_iterations,
+                      Real tolerance,
+                      CME212::SFML_Viewer* viewer,
+                      GraphType* graph,
+                      NodeColor nc,
+                      int cycle = 10,
+                      Real atolerance = Real(0)) :
+    
+    super(r0, max_iterations, tolerance, atolerance, cycle),
+    viewer_(viewer),
+    graph_(graph),
+    nc_(nc),
+    x_(x),
+    node_map_(node_map)
+    {update_viewer();}
+
+    bool finished() {
+      update_viewer();
+      return super::finished();
+    }
+
+    template <typename T>
+    bool finished(const T& r) {
+       bool ret = super::finished(r);
+       update_viewer();
+
+       // Add delay for better visualization
+       std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+       return ret;
+    }
+
+  private:
+    CME212::SFML_Viewer* viewer_;
+    GraphType* graph_;
+    NodeColor nc_;
+    mtl::vec::dense_vector<double>* x_;
+    std::map<NodeType, unsigned> node_map_;
+  };
+}
 
 
 int main(int argc, char** argv)
@@ -64,10 +143,51 @@ int main(int argc, char** argv)
   remove_box(graph, Box3D(Point( 0.4+h, 0.4+h,-1), Point( 0.8-h, 0.8-h,1)));
   remove_box(graph, Box3D(Point(-0.6+h,-0.2+h,-1), Point( 0.6-h, 0.2-h,1)));
 
-  // HW3: YOUR CODE HERE
-  // Define b using the graph, f, and g.
-  // Construct the GraphSymmetricMatrix A using the graph
-  // Solve Au = b using MTL.
+
+  size_t num_nodes = graph.size();
+  mtl::vec::dense_vector<double> b(num_nodes, 0.0);
+  
+  for (size_t i = 0; i < num_nodes; ++i) {
+    auto n = graph.node(i);
+    auto x = n.position();
+    if (boundary(n)) {
+      b[i] = g(x);
+    }
+    else {
+      double gx = h * h * f(x);
+      for (auto ni = n.edge_begin(); ni != n.edge_end(); ++ni) {
+        auto n2 = (*ni).node2();
+        if (boundary(n2))
+          gx -= g(n2.position());
+      }
+      b[i] = gx;
+    }
+  }
+
+  GraphSymmetricMatrix A(&graph);
+  A.make_sparse();
+
+  mtl::vec::dense_vector<double> x(num_nodes, 0.0);
+
+  // Launch Viewer
+  CME212::SFML_Viewer viewer;
+  auto node_map = viewer.empty_node_map(graph);
+  viewer.add_nodes(graph.node_begin(), graph.node_end(), node_map);
+  viewer.add_edges(graph.edge_begin(), graph.edge_end(), node_map);
+  viewer.center_view();
+
+  // Simulation thread to visualize  solution
+  bool interrupt_sim_thread = false;
+  auto sim_thread = std::thread([&]() {
+    itl::visual_iteration<double> iter(b, &x, node_map, 1000, 1.e-11, &viewer, &graph, NodeColor());
+    itl::cg(A, x, b, iter);
+  });
+
+  viewer.event_loop();
+
+  // Interrupting window if returning from event loop
+  interrupt_sim_thread = true;
+  sim_thread.join();
 
   return 0;
 }

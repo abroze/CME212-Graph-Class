@@ -67,7 +67,7 @@ int main(int argc, char** argv)
   color_funct cf = color_funct(longest_path);
 
   std::map<NodeType, unsigned> node_map = viewer.empty_node_map(graph);
-  viewer.add_nodes(graph.node_begin(), graph.node_end(), cf, node_map);  
+  viewer.add_nodes(graph.node_begin(), graph.node_end(), cf, node_map);
   viewer.add_edges(graph.edge_begin(), graph.edge_end(), node_map);
 
   // Center the view and enter the event loop for interactivity

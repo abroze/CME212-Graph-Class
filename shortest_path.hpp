@@ -80,6 +80,7 @@ int shortest_path_lengths(GraphType& g, NodeType& root) {
   std::queue<NodeType> Q;
 
   root.value() = 0;
+
   int longest_path = 0;
   Q.push(root);
 

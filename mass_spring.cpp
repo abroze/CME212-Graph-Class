@@ -92,7 +92,7 @@ int main(int argc, char** argv)
   auto sim_thread = std::thread([&](){
 
       // Begin the mass-spring simulation
-      double dt = 0.001;
+      double dt = 0.0005;
       double t_start = 0;
       double t_end = 5.0;
 
@@ -108,7 +108,7 @@ int main(int argc, char** argv)
 
         PinConstraint C1 = PinConstraint(fixed_corners, fixed_positions);
         PlaneConstraint C2 = PlaneConstraint(plane_thresh);
-        //SphereConstraint C3 = SphereConstraint(center, radius);
+        SphereConstraint C3 = SphereConstraint(center, radius);
         RemoveSphereConstraint C4 = RemoveSphereConstraint(center, radius);
         CombinedConstraints combined_constraint_fn = make_combined_constraint(C1, C2, C4);
 
