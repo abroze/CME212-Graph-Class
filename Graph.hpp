@@ -12,6 +12,11 @@
 #include "CME212/Util.hpp"
 #include "CME212/Point.hpp"
 
+#include <thrust/for_each.h>
+#include <thrust/execution_policy.h>
+#include "thrust/iterator/transform_iterator.h"
+#include "thrust/system/omp/execution_policy.h"
+
 
 /** @class Graph
  * @brief A template for 3D undirected graphs.
@@ -49,7 +54,7 @@ class Graph {
   using edge_type = Edge;
 
   /** Type of node iterators, which iterate over all graph nodes. */
-  class NodeIterator;
+  struct NodeIterator;
   /** Synonym for NodeIterator */
   using node_iterator = NodeIterator;
 
@@ -431,12 +436,15 @@ class Graph {
     nodes_map_.clear();
   }
 
+
+
   //
   // Node Iterator
   //
 
   /** @class Graph::NodeIterator
    * @brief Iterator class for nodes. A forward iterator. */
+/*
   class NodeIterator : private totally_ordered<NodeIterator> {
    public:
     // These type definitions let us use STL's iterator_traits.
@@ -445,26 +453,28 @@ class Graph {
     using reference         = Node&;                    // Reference to elements
     using difference_type   = std::ptrdiff_t;           // Signed difference
     using iterator_category = std::forward_iterator_tag;  // Weak Category, Proxy
+*/
 
     /** Construct an invalid NodeIterator. */
-    NodeIterator() {
-    }
+   // NodeIterator() {
+   // }
 
     /** Return node object corresponding to node iterator*/
-    Node operator*() const {
-      return Node(graph_, graph_->active_nodes_[node_idx_]);
-    }
+   // Node operator*() const {
+   //   return Node(graph_, graph_->active_nodes_[node_idx_]);
+   // }
     
     /** Increment node iterator */
-    NodeIterator& operator++() {
-      node_idx_++;
-      return *this;
-    }
+   // NodeIterator& operator++() {
+   //   node_idx_++;
+   //   return *this;
+   // }
     
     /** Check equality between node iterators */
-    bool operator==(const NodeIterator& it) const {
-      return (graph_ == it.graph_ && node_idx_ == it.node_idx_);
-    }
+   // bool operator==(const NodeIterator& it) const {
+   //   return (graph_ == it.graph_ && node_idx_ == it.node_idx_);
+   // }
+  /*
 
    private:
 
@@ -478,6 +488,54 @@ class Graph {
     NodeIterator(const graph_type* graph, size_type idx)
       : graph_(const_cast<graph_type*>(graph)), node_idx_(idx) {}
   };
+  */
+
+  /** @brief A functor that maps a @a index to its  node.
+   *
+   * @param[in] graph Pointer to the graph with the node with index @a index
+   *
+   * This is a helper functor for new NodeIterator as a random access iterator.
+   */
+  struct Index2Node {
+
+    Index2Node(const Graph* graph) :
+    graph_(const_cast<Graph*>(graph)) {}
+
+    Node operator() (size_type index) {return graph_->node(index);}
+
+   private:
+    Graph* graph_;
+  };
+
+  /**
+   * @brief A random access iterator that enables parallelized access of nodes in graph.
+   *
+   * thrust::transform_iterator is an iterator which represents a pointer into a range of values
+   * after transformation by a function, useful for creating a range filled with the result of
+   * applying an operation to another range without either explicitly storing it in memory.
+   *
+   * thrust::counting_iterator is an iterator which represents a pointer into a range of sequentially
+   * changing values, useful for creating a range filled with a sequence without explicitly storing it in memory.
+   */
+  struct NodeIterator: thrust::transform_iterator<Index2Node, thrust::counting_iterator<size_type>, Node> {
+
+    using super_t = thrust::transform_iterator<Index2Node, thrust::counting_iterator<size_type>, Node>;
+      
+    // NodeIterator invalid default constructor
+    NodeIterator(){}
+
+    // KLUDGE conversion constructor
+    NodeIterator(const super_t& ti) : super_t{ti} {}
+
+   private:
+    friend class Graph;
+
+    // Private NodeIterator constructor
+    NodeIterator(const Graph* graph, const size_type node_iter_idx = 0) :
+    super_t{thrust::counting_iterator<size_type>(node_iter_idx), Index2Node(graph)} {}
+  };
+
+
   
   /** Return iterator pointing to first node in node list */
   node_iterator node_begin() const { return NodeIterator(this, 0); }

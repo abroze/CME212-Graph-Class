@@ -3,6 +3,13 @@
  * @brief Define the SpaceSearcher class for making efficient spatial searches.
  */
 
+#include "thrust/execution_policy.h"
+#include "thrust/iterator/transform_iterator.h"
+#include "thrust/iterator/zip_iterator.h"
+#include "thrust/sort.h"
+#include "thrust/tuple.h"
+
+
 #include "CME212/Util.hpp"
 #include "CME212/Point.hpp"
 #include "CME212/BoundingBox.hpp"
@@ -55,6 +62,20 @@ class SpaceSearcher
 
  public:
 
+  /**
+  * @brief A helper functor that maps a MortonCodeType to
+  * a unary function that maps points to Morton codes.
+  */
+  struct Point2MC {
+      
+      Point2MC(MortonCoderType mc) : mc_(mc) {}
+      
+      code_type operator()(Point p) {return mc_.code(p);}
+
+    private:
+      MortonCoderType mc_; 
+  };
+
   /////////////////
   // CONSTRUCTOR //
   /////////////////
@@ -80,9 +101,10 @@ class SpaceSearcher
    */
   template <typename TIter, typename T2Point>
   SpaceSearcher(const Box3D& bb,
-                TIter first, TIter last, T2Point t2p) {
-    // HW4: YOUR CODE HERE
-  }
+                TIter first, TIter last, T2Point t2p) :
+
+    SpaceSearcher(bb, first, last, thrust::make_transform_iterator(first,t2p),
+                             thrust::make_transform_iterator(last,t2p)) {}
 
   /** @brief SpaceSearcher Constructor.
    *
@@ -107,8 +129,34 @@ class SpaceSearcher
   template <typename TIter, typename PointIter>
   SpaceSearcher(const Box3D& bb,
                 TIter tfirst, TIter tlast,
-                PointIter pfirst, PointIter plast) {
-    // HW4: YOUR CODE HERE
+                PointIter pfirst, PointIter plast) : mc_(bb) {
+
+    // transform_iterator<functor, iterator, value_type>
+    using MCIter = thrust::transform_iterator<Point2MC, PointIter, code_type>;
+
+    // MCIter ranges specification
+    MCIter mc_begin = MCIter(pfirst, Point2MC(mc_));
+    MCIter mc_end = MCIter(plast, Point2MC(mc_));
+
+    // Tuple of input iterators
+    using IteratorTuple = thrust::tuple<MCIter,TIter>;
+
+    // Represent pointer into a range of tuples
+    using ZipIter = thrust::zip_iterator<IteratorTuple>;
+
+    // To avoid explicitly specifying the type of ZipIter
+    ZipIter first = thrust::make_zip_iterator(thrust::make_tuple(mc_begin,tfirst));
+    ZipIter last = thrust::make_zip_iterator(thrust::make_tuple(mc_end,tlast));
+    
+    // Use range constructor of std::vector to initialize the data
+    z_data_ = std::vector<morton_pair> (first, last);
+    
+    // (Optional) Sort the data by morton codes
+    thrust::sort(thrust::omp::par, z_data_.begin(), z_data_.end(),
+                [](morton_pair mp1, morton_pair mp2) {
+
+                  return mp1.code_ < mp2.code_;
+                });
   }
 
   ///////////////
@@ -212,8 +260,11 @@ class SpaceSearcher
     code_type code_;
     value_type value_;
     // Cast operator to treat a morton_pair as a code_type in std::algorithms
-    operator const code_type&() const { return code_; }
-    // HW4: YOUR CODE HERE
+    operator const code_type&() const {return code_; }
+    
+    morton_pair(thrust::tuple<code_type, T> pair) :
+    code_(thrust::get<0>(pair)),
+    value_(thrust::get<1>(pair)) {}
   };
 
   // Pairs of Morton codes and data items of type T.

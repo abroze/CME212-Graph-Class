@@ -21,7 +21,9 @@ ifeq ($(arch-name),)
 endif
 
 # Define the C++ compiler to use
-CXX := $(shell which clang++) 
+CXX := /opt/homebrew/Cellar/llvm/13.0.1_1/bin/clang++
+CXX += -Xclang -fopenmp
+
 
 # Dependency directory and flags
 DEPSDIR := $(shell mkdir -p .deps; echo .deps)
@@ -36,14 +38,19 @@ DEPSFLAGS = -MD -MF $(DEPSFILE) #-MP
 CPPFLAGS += -I. -I/opt/homebrew/Cellar/sfml/2.5.1_1/include
 CPPFLAGS += -I/Users/albanbroze/cme212-abroze/mtl4
 CPPFLAGS += -I/opt/homebrew/Cellar/boost/1.78.0_1/include
+CPPFLAGS += -I/opt/homebrew/Cellar/libomp/13.0.1/include
+CPPFLAGS += -I/Users/albanbroze/cme212-abroze/thrust
+
 
 # Define cxx compile flags
-CXXFLAGS  := -std=c++11 -O3 -W -Wall -Wextra #-Wfatal-errors
+CXXFLAGS := -std=c++14 -O3 -W -Wall -Wextra
+CXXFLAGS += -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP
 
 # Define any directories containing libraries
 #   To include directories use -Lpath/to/files
 LDFLAGS += -L/usr/local/lib/ -L/opt/homebrew/Cellar/sfml/2.5.1_1/lib
 LDFLAGS += -L/opt/homebrew/Cellar/boost/1.78.0_1/lib
+LDFLAGS += -L/opt/homebrew/Cellar/libomp/13.0.1/lib -lomp
 
 # Define any libraries to link into executable
 #   To link in libraries (libXXX.so or libXXX.a) use -lXXX
@@ -100,7 +107,8 @@ GTEST_DIR = /Users/albanbroze/Documents/stanford/cme212/googletest/googletest
 CPPFLAGS += -isystem $(GTEST_DIR)/include -L/opt/homebrew/Cellar/sfml/2.5.1_1/lib
 
 # Flags passed to the C++ compiler for tests
-GTEST_CXXFLAGS += -std=c++11 -g -Wall -Wextra -pthread
+GTEST_CXXFLAGS += -std=c++14 -g -Wall -Wextra -pthread
+GTEST_CXXFLAGS += -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP
 
 # Define any libraries to link into executable
 #   To link in libraries (libXXX.so or libXXX.a) use -lXXX
@@ -193,7 +201,7 @@ gtest_hw4_testomp.o : gtest_hw4_testomp.cpp Graph.hpp $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(GTEST_CXXFLAGS) $(INCLUDES) -c $<
 
 gtest_hw4_testomp : gtest_hw4_testomp.o gtest_main.a 
-	$(CXX) $(CPPFLAGS) $(GTEST_CXXFLAGS) $^ -o $@ $(GTEST_LDLIBS)
+	$(CXX) $(CPPFLAGS) $(GTEST_CXXFLAGS) $^ -o $@ $(GTEST_LDLIBS) $(LDFLAGS)
 
 gtest_hw4.o : gtest_hw4.cpp Graph.hpp SpaceSearcher.hpp MortonCoder.hpp $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(GTEST_CXXFLAGS) $(INCLUDES) -c $<

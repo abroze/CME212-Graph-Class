@@ -22,8 +22,29 @@ namespace detail {
  *   where each A,...,J is the corresponding bit from @a x
  */
 inline uint32_t spread_bits(uint32_t x) {
-  // HW4: YOUR CODE HERE
-  return x;
+  
+  // Rightmost digit
+  uint32_t digit = x % 2;
+
+  // From parameter, we see that the number of nonzero bits is 10
+  const int total_bits = 10;
+
+  for (unsigned int i = 1; i <= total_bits; i++) {
+      
+      // 1 is in the (i+1)th rightmost position
+      uint32_t one = 1 << i;
+
+      // only looking at the last few digits
+      uint32_t last = x & one;
+
+      // Shifted to the left
+      uint32_t shifted = last << 2*i;
+
+      // shift left OR with self
+      digit = digit | shifted;
+  }
+  digit &= ~(1 << 30); //apply mask to turn off leftmost two digits;
+  return digit;
 }
 
 /** Compacts every third bit in a 32-bit integer to the lowest 10-bits.
@@ -33,8 +54,28 @@ inline uint32_t spread_bits(uint32_t x) {
  *   where each A,...,J is the corresponding bit from @a x
  */
 inline uint32_t compact_bits(uint32_t x) {
-  // HW4: YOUR CODE HERE
-  return x;
+  
+  // Rightmost digit
+  uint32_t digit = x % 2;
+
+  // From parameter, we see that the number of nonzero bits is 10
+  const int total_bits = 10;
+
+  for (unsigned int i = 1; i <= total_bits; i++){
+
+      // Starting from i=0,3,6,...3i from the right
+      uint32_t one = 1 << 3*i;
+
+      // only looking at the last few digits
+      uint32_t last = x & one;
+
+      // Shifted to the right
+      uint32_t shifted = last >> 2*i;
+      
+      // shifted right OR with self
+      digit = digit | shifted;
+  }
+  return digit;
 }
 
 /** Smears the bits in c into the low bits by steps of one

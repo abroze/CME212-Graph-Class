@@ -7,9 +7,27 @@
  * Second file: Tetrahedra (one per line) defined by 4 indices into the point
  * list
  */
- 
+
 #include "CME212/SFML_Viewer.hpp"
+
+#include <fstream>
+#include <chrono>
+#include <thread>
+
+#include "thrust/for_each.h"
+#include "thrust/iterator/transform_iterator.h"
+#include "thrust/system/omp/execution_policy.h"
+
+#include "CME212/Util.hpp"
+#include "CME212/Color.hpp"
+#include "CME212/Point.hpp"
+#include "CME212/BoundingBox.hpp"
+
+#include "Graph.hpp"
+#include "SpaceSearcher.hpp"
+
 #include "mass_spring.hpp"
+
 
 int main(int argc, char** argv)
 {
@@ -67,6 +85,16 @@ int main(int argc, char** argv)
     }
   }
 
+
+  // Parallel version to set initial conditions for all edges 
+  thrust::for_each(thrust::omp::par,
+                   //thrust::seq,
+                   graph.node_begin(),
+                   graph.node_end(),
+                   ThrustNodeInitialization(graph.num_nodes(),
+                   fixed_corners,
+                   fixed_positions));
+
   
   for (auto eit = graph.edge_begin(); eit != graph.edge_end(); ++eit) {
     (*eit).value().K = 100.0;
@@ -91,10 +119,14 @@ int main(int argc, char** argv)
   bool interrupt_sim_thread = false;
   auto sim_thread = std::thread([&](){
 
+      CME212::Clock clock;
+
       // Begin the mass-spring simulation
       double dt = 0.0005;
       double t_start = 0;
       double t_end = 5.0;
+
+      clock.start();
 
       for (double t = t_start; t < t_end && !interrupt_sim_thread; t += dt) {
         GravityForce F1 = GravityForce();
@@ -110,7 +142,8 @@ int main(int argc, char** argv)
         PlaneConstraint C2 = PlaneConstraint(plane_thresh);
         SphereConstraint C3 = SphereConstraint(center, radius);
         RemoveSphereConstraint C4 = RemoveSphereConstraint(center, radius);
-        CombinedConstraints combined_constraint_fn = make_combined_constraint(C1, C2, C4);
+        SelfCollisionConstraint C5 = SelfCollisionConstraint();
+        CombinedConstraints combined_constraint_fn = make_combined_constraint(C1, C2, C5);
 
         // Apply all forces and constraints to to the graph
         symp_euler_step(graph, t, dt, combined_force_fn, combined_constraint_fn);
@@ -129,6 +162,9 @@ int main(int argc, char** argv)
         if (graph.size() < 100)
           std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
+
+      double total_time = clock.seconds();
+      std::cout << "Time: " << total_time << " s" << std::endl;
 
     });  // simulation thread
 

@@ -3,6 +3,7 @@
  * Implementation of mass-spring system using Graph
  */
 
+#include "Graph.hpp"
 #include <fstream>
 #include <chrono>
 #include <thread>
@@ -11,7 +12,10 @@
 #include "CME212/Color.hpp"
 #include "CME212/Point.hpp"
 
-#include "Graph.hpp"
+#include <thrust/for_each.h>
+#include <thrust/execution_policy.h>
+#include "thrust/iterator/transform_iterator.h"
+#include "thrust/system/omp/execution_policy.h"
 
 
 // Gravity in meters/sec^2
@@ -257,6 +261,131 @@ struct RemoveSphereConstraint : public Constraint {
 };
 
 
+
+
+struct CutDownVelocity {
+
+    CutDownVelocity(Node& n, double ra) :
+    n1(n), radius(ra) {}
+
+    void operator()(Node n2) {
+
+        Point r = n1.position() - n2.position();
+        double l2 = normSq(r);
+
+        if (n1 != n2 && l2 < radius) {
+
+            // Prevent hit by removing velocity component in r
+            n1.value().vel -= (dot(r, n1.value().vel) / l2) * r;
+        }
+    }
+
+    Node n1;
+    double radius;
+};
+
+
+
+Box3D FindBoxIntersection(Box3D& smallbox, Box3D& bigbox) {
+
+    // Obtain maximum of each box
+    Point max_smallbox = smallbox.max();
+    Point max_bigbox = bigbox.max();
+
+    // Obtain minimum of each box
+    Point min_smallbox = smallbox.min();
+    Point min_bigbox = bigbox.min();
+
+    // Declare points of resulting box and update them
+    Point resulting_max = max_smallbox;
+    Point resulting_min = min_smallbox;
+
+    for (Point::size_type i = 0; i < min_smallbox.size(); ++i) {
+        
+        if (max_smallbox[i] > max_bigbox[i]) 
+            resulting_max[i] = max_bigbox[i];
+
+        if (min_smallbox[i] < min_bigbox[i])
+            resulting_min[i] = min_bigbox[i];
+    }
+
+    // Comparison
+    for (Point::size_type i = 0; i < min_smallbox.size(); ++i) {
+        
+        if (resulting_max[i] < min_bigbox[i])
+            resulting_max[i] = min_bigbox[i];
+
+        if (resulting_min[i] > max_bigbox[i]) 
+            resulting_min[i] = max_bigbox[i];
+
+    }
+    return Box3D(resulting_min,resulting_max);
+}
+
+
+struct DetermineInfluence {
+
+    DetermineInfluence(SpaceSearcher<Node>& ss): searcher_(ss){}
+
+    void operator()(Node n) {
+
+        const Point& center = n.position();
+        double radius2 = std::numeric_limits<double>::max();
+
+        // Determine squared radius
+        for (auto eit = n.edge_begin(); eit != n.edge_end(); ++eit) {
+            radius2 = std::min(radius2, normSq((*eit).node2().position() - center));
+        }
+        radius2 *= 0.9;
+
+        // Construct small bounding box around node using scaled radius
+        Point upper = center - sqrt(radius2);
+        Point lower = center + sqrt(radius2);
+        Box3D SmallBB(lower, upper);
+
+        // Get the big bounding box from searcher
+        Box3D BigBB = searcher_.bounding_box();
+
+        // Get an intersection box contained by the big bounding box
+        Box3D result_bb = FindBoxIntersection(SmallBB, BigBB);
+
+        assert(searcher_.bounding_box().contains(result_bb));
+
+        // Constraint is enforced within the bounding box in parallel
+        thrust::for_each(searcher_.begin(result_bb), searcher_.end(result_bb), CutDownVelocity(n, radius2));
+    }
+
+    private:
+    SpaceSearcher<Node>& searcher_;
+};
+
+
+
+struct SelfCollisionConstraint : public Constraint {
+
+    void operator()(GraphType& g, double t) {
+
+        auto n2p = [](const Node& n) {return n.position();};
+        Box3D bigbb = Box3D(thrust::make_transform_iterator(g.node_begin(), n2p),
+                            thrust::make_transform_iterator(g.node_end(), n2p));
+
+        Point extended_lower = bigbb.min();
+        Point extended_upper = bigbb.max();
+
+        for (unsigned i = 0; i < extended_lower.size(); ++i) {
+            extended_lower[i] = -abs(extended_lower[i])*1.5;
+            extended_upper[i] = abs(extended_upper[i])*1.5;
+        }
+
+        bigbb = Box3D(extended_lower, extended_upper);
+
+        SpaceSearcher<Node> searcher(bigbb, g.node_begin(), g.node_end(), n2p);
+
+        thrust::for_each(g.node_begin(), g.node_end(), DetermineInfluence(searcher));
+    }
+};
+
+
 struct CombinedConstraints {
     CombinedConstraints(std::vector<Constraint*> constr_vec):
     constr_vec_(constr_vec){}
@@ -302,32 +431,93 @@ CombinedConstraints make_combined_constraint(C1& c1, C2& c2, C3& c3){
  */
 
 
+
+struct ThrustUpdateNodePos  {
+
+    ThrustUpdateNodePos(double difftime) :
+    dt_(difftime) {}
+
+    void operator()(Node n) {
+        n.position() += n.value().vel * dt_;
+    }
+
+    double dt_;
+};
+
+
+template <typename F>
+struct ThrustUpdateNodeVel  {
+
+    ThrustUpdateNodeVel(double time, double diff_time, F& force) :
+    f_(force), t_(time), dt_(diff_time) {}
+
+    void operator()(Node n) {
+        n.value().vel += f_(n, t_) * (dt_ / n.value().mass);
+    }
+
+    F f_; 
+    double t_; 
+    double dt_; 
+};
+
+
+
 template <typename G, typename F, typename C>
 double symp_euler_step(G& g, double t, double dt, F force, C constraint) {
 
-  // Compute the t+dt position
-  for (auto it = g.node_begin(); it != g.node_end(); ++it) {
-    auto n = *it;
+//  // Compute the t+dt position
+//  for (auto it = g.node_begin(); it != g.node_end(); ++it) {
+//    auto n = *it;
+//
+//    // Update the position of the node according to its velocity
+//    // x^{n+1} = x^{n} + v^{n} * dt
+//    n.position() += n.value().vel * dt;
+//  }
 
-    // Update the position of the node according to its velocity
-    // x^{n+1} = x^{n} + v^{n} * dt
-    n.position() += n.value().vel * dt;
-  }
+  thrust::for_each(thrust::omp::par, g.node_begin(), g.node_end(), ThrustUpdateNodePos(dt));
 
   constraint(g, t);
 
   // Compute the t+dt velocity
-  for (auto it = g.node_begin(); it != g.node_end(); ++it) {
-    auto n = *it;
+  //for (auto it = g.node_begin(); it != g.node_end(); ++it) {
+  //  auto n = *it;
 
     // v^{n+1} = v^{n} + F(x^{n+1},t) * dt / m
-    n.value().vel += force(n, t) * (dt / n.value().mass);
-  }
+  //  n.value().vel += force(n, t) * (dt / n.value().mass);
+  //}
+
+  thrust::for_each(thrust::omp::par, g.node_begin(), g.node_end(), ThrustUpdateNodeVel<F>(t,dt,force));
 
   return t + dt;
 }
 
 
+struct ThrustNodeInitialization {
+
+    ThrustNodeInitialization(Point::size_type num_nodes,
+                             std::vector<Node>& fixed_nodes,
+                             std::vector<Point>& fixed_positions) :
+        num_nodes_(num_nodes),
+        fixed_nodes_(fixed_nodes),
+        fixed_positions_(fixed_positions){}
+
+    void operator()(Node n) {
+
+        // Setting initial conditions for nodes
+        n.value().mass = 1.0/num_nodes_; 
+        n.value().vel = Point(0, 0, 0);
+
+        // Fixing points on corners
+        if (n.position() == Point(0, 0, 0) or n.position() == Point(1, 0, 0)) {
+            fixed_nodes_.push_back(n);
+            fixed_positions_.push_back(n.position());
+        }
+    }
+
+    Point::size_type num_nodes_; 
+    std::vector<Node>& fixed_nodes_; 
+    std::vector<Point>& fixed_positions_;
+};
 
 
 
